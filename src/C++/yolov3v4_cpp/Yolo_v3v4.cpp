@@ -16,11 +16,6 @@
 #include "..\Include\Yolo_v3v4.h"
 #include "..\Include\json.h"
 
-#ifdef WINDOWS_BUILD
-#include "..\Include\Log.h"
-#include "..\Include\ImageProcess.h"
-#endif
-
 using namespace std;
 using namespace cv;
 using namespace dnn;
@@ -52,8 +47,10 @@ YoloV3V4_Inference::YoloV3V4_Inference (
 
 	for (auto& objectInfo : objectInfos)
 	{
-		if (this->objectNameLUT.count(objectInfo.second.ID))
-			Log(Log::FatalError) << "Found two objects with the same ID. In: " << __FUNCTION__ << Log::Submit;
+		if (this->objectNameLUT.count(objectInfo.second.ID)) {
+			cout << "Found two objects with the same ID. In: " << __FUNCTION__ << endl;
+			return;
+		}
 		this->objectNameLUT[objectInfo.second.ID] = objectInfo.second.name;
 	}
 
@@ -61,14 +58,15 @@ YoloV3V4_Inference::YoloV3V4_Inference (
 	string engineFilePath  = root + "\\" + enginePath_ + "\\" + engineFileName_;
 	string anchorsFilePath = root + "\\" + enginePath_ + "\\" + anchorsFileName_;
 
-
 	if (!boost::filesystem::is_regular_file(engineFilePath))
-		Log(Log::FatalError) 
-			<< "Couldn't open: " << engineFilePath << "In: " <<  __FUNCTION__ << " " << __LINE__ << Log::Submit;
+		cout << "Couldn't open: " << engineFilePath 
+			 << "In: " <<  __FUNCTION__ << " " << __LINE__ << endl;
+		return;
 
 	if (!boost::filesystem::is_regular_file(anchorsFilePath))
-		Log(Log::FatalError) 
-			<< "Couldn't open: " << anchorsFilePath << "In: " <<  __FUNCTION__ << " " << __LINE__ << Log::Submit;
+		cout << "Couldn't open: " << anchorsFilePath 
+			 << "In: " <<  __FUNCTION__ << " " << __LINE__ << endl;
+		return;
 
 	//////////
 
@@ -160,12 +158,8 @@ static void decodeYoloPredictions(
     xt::xarray<float>& class_probs
 )
 {
-    // doesn't return pred_box like python (only needed for training)
-    // to do: why did tf.meshgrid work?? (in python yolo_boxes) (maybe it didn't !!)
-    // to do: why does tf.meshgrid work?? (in python yolo_loss)
 
     try {
-        // to do: don't know about the need for all these xarray copy constructors from xview !!
 
         auto grid_size_xy = xarray<int>{ (int) pred.shape()[2], (int)  pred.shape()[1] };
         auto boxes_xy = xarray<float>(xt::view(pred, xt::all(), xt::all(), xt::all(), xt::all(), xt::range(0, 2)));
@@ -206,10 +200,10 @@ static void decodeYoloPredictions(
 
     }
     catch (std::exception& e) {
-        Log(Log::Warning) << "S/W error: " << e.what() << ". In: " << __FUNCTION__ << Log::Submit;
+        cout << "S/W error: " << e.what() << ". In: " << __FUNCTION__ << endl;
     }
     catch (...) {
-        Log(Log::Warning) << "Unknown error. In: " << __FUNCTION__ << Log::Submit;
+        cout << "Unknown error. In: " << __FUNCTION__ << endl;
     }
 }
 
@@ -270,8 +264,7 @@ std::unordered_map <std::string, xt::xarray<float>> readYoloAnchors(const std::s
 		}
     }
     catch(...) {
-        // error handling TBD
-    }
+	}
     return anchors;
 }
 
@@ -300,16 +293,17 @@ Yolo_v3v4::Yolo_v3v4(
         m_Net = readNetFromONNX(onnxPath);
 
     } catch(cv::Exception& e) {
-		Log(Log::FatalError) 
-            << "Opencv Error calling readNetFromONNX(): " << e.what() 
-            << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "Opencv Error calling readNetFromONNX(): " << e.what() 
+             << ". In " <<  __FUNCTION__ << endl;
+			return;
 	} catch(std::exception& e) {
-		Log(Log::FatalError) 
-            << "S/W Error calling readNetFromONNX(): " << e.what() 
-            << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "S/W Error calling readNetFromONNX(): " << e.what() 
+             << ". In " <<  __FUNCTION__ << endl;
+			return;
 	} catch(...) {
-		Log(Log::FatalError) 
-            << "Unknown S/W Error calling readNetFromONNX() in: " <<  __FUNCTION__ << Log::Submit;
+		cout << "Unknown S/W Error calling readNetFromONNX() in: " 
+			 <<  __FUNCTION__ << endl;
+			return;
 	}
 
     // set target, backend
@@ -337,17 +331,17 @@ Yolo_v3v4::Yolo_v3v4(
         }
 
     } catch(cv::Exception& e) {
-		Log(Log::FatalError) 
-            << "Opencv Error calling setPreferableTarget() / setPreferableTarget(): " << e.what() 
-            << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "Opencv Error calling setPreferableTarget() / setPreferableTarget(): " << e.what() 
+             << ". In " <<  __FUNCTION__ << Log::endl;
+			return;
 	} catch(std::exception& e) {
-		Log(Log::FatalError) 
-            << "S/W Error calling setPreferableTarget() / setPreferableTarget(): " << e.what() 
-            << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "S/W Error calling setPreferableTarget() / setPreferableTarget(): " << e.what() 
+             << ". In " <<  __FUNCTION__ << Log::endl;
+			return;
 	} catch(...) {
-		Log(Log::FatalError) 
-            << "Unknown S/W Error calling setPreferableTarget() / setPreferableTarget() "
-            << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "Unknown S/W Error calling setPreferableTarget() / setPreferableTarget() "
+             << ". In " <<  __FUNCTION__ << Log::endl;
+			return;
     }
 
     // set input layers and input size for convience later
@@ -361,15 +355,16 @@ Yolo_v3v4::Yolo_v3v4(
         m_InputImageChannels = m_InputShapes["input"].at(3);
 
     } catch(cv::Exception& e) {
-		Log(Log::FatalError) 
-            << "Opencv Error calling setting input layers: " << e.what() 
-            << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "Opencv Error calling setting input layers: " << e.what() 
+             << ". In " <<  __FUNCTION__ << Log::endl;
+		return;
 	} catch(std::exception& e) {
-		Log(Log::FatalError) 
-            << "S/W Error calling setting input layers: " << e.what() 
-            << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "S/W Error calling setting input layers: " << e.what() 
+             << ". In " <<  __FUNCTION__ << Log::endl;
+		return;
 	} catch(...) {
-		Log(Log::FatalError) << "Unknown S/W Error setting input layers in: " <<  __FUNCTION__ << Log::Submit;
+		cout <<  "Unknown S/W Error setting input layers in: " <<  __FUNCTION__ << Log::endl;
+		return;
 	}
     
     // set anchors as per file
@@ -383,15 +378,16 @@ Yolo_v3v4::Yolo_v3v4(
             anchorsOutputs.push_back(anchor.first);
 
     } catch(cv::Exception& e) {
-		Log(Log::FatalError) 
-            << "Opencv Error reading anchors: " << e.what() 
-            << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "Opencv Error reading anchors: " << e.what() 
+             << ". In " <<  __FUNCTION__ << Log::endl;
+		return;
 	} catch(std::exception& e) {
-		Log(Log::FatalError) 
-            << "S/W Error reading anchors: " << e.what() 
-            << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "S/W Error reading anchors: " << e.what() 
+             << ". In " <<  __FUNCTION__ << Log::endl;
+		return;
 	} catch(...) {
-		Log(Log::FatalError) << "Unknown S/W Error reading anchors in: " <<  __FUNCTION__ << Log::Submit;
+		cout << "Unknown S/W Error reading anchors in: " <<  __FUNCTION__ << Log::endl;
+		return;
 	}
 
     // read output layers ...
@@ -401,39 +397,43 @@ Yolo_v3v4::Yolo_v3v4(
         m_OutputLayers = m_Net.getUnconnectedOutLayersNames();
     
     } catch(cv::Exception& e) {
-		Log(Log::FatalError) 
-            << "Opencv Error calling getUnconnectedOutLayersNames(). " 
-            << "Check template's image_size and template's onnx_model sizes. " 
-            << e.what() << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "Opencv Error calling getUnconnectedOutLayersNames(). " 
+             << "Check template's image_size and template's onnx_model sizes. " 
+             << e.what() << ". In " <<  __FUNCTION__ << Log::endl;
+		return;
 	} catch(std::exception& e) {
-		Log(Log::FatalError) << "S/W Error calling getUnconnectedOutLayersNames(). " 
-            << "Check template's image_size and template's onnx_model sizes. " 
-            << e.what() << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "S/W Error calling getUnconnectedOutLayersNames(). " 
+             << "Check template's image_size and template's onnx_model sizes. " 
+             << e.what() << ". In " <<  __FUNCTION__ << Log::endl;
+		return;
 	} catch(...) {
-		Log(Log::FatalError) << "Unknown S/W Error calling getUnconnectedOutLayersNames(). " 
-            << "Check template's image_size and template's onnx_model sizes. " 
-            << "In " <<  __FUNCTION__ << Log::Submit;
+		cout << "Unknown S/W Error calling getUnconnectedOutLayersNames(). " 
+             << "Check template's image_size and template's onnx_model sizes. " 
+             << "In " <<  __FUNCTION__ << Log::endl;
+		return;
 	}
 
     // verify anchors match output layers
 
     for (auto& anchor: anchorsOutputs)
     {
-        if (!inVector(anchor, m_OutputLayers))
-            Log(Log::FatalError) 
-                << "Anchor: " << anchor << " not a Yolo output. " << anchorsPath
-                << Log::Submit;
+        if (!inVector(anchor, m_OutputLayers)) {
+            cout << "Anchor: " << anchor << " not a Yolo output. " << anchorsPath
+                 << Log::endl;
+			return;
+		}			
     }
 
     // verify output layers match anchors
 
     for (auto& outputLayer : m_OutputLayers)
     {
-        if (!inVector(outputLayer, anchorsOutputs))
-            Log(Log::FatalError) 
-                << "OutputLayer: " << outputLayer << " not in anchors file: " << anchorsPath
-                << ", but found in onnx model. In: " << __FUNCTION__ 
-                << Log::Submit;
+        if (!inVector(outputLayer, anchorsOutputs)) {
+            cout << "OutputLayer: " << outputLayer << " not in anchors file: " << anchorsPath
+                 << ", but found in onnx model. In: " << __FUNCTION__ 
+                 << Log::endl;
+			return;
+		}
     }
 
     // a little confusing but we get the output shapes from the input shape
@@ -450,26 +450,30 @@ Yolo_v3v4::Yolo_v3v4(
             m_Net.getLayerShapes(m_InputShapes["input"], id, inLayerShapes, outLayerShapes);
 
         } catch(cv::Exception& e) {
-		    Log(Log::FatalError) 
-                << "Opencv Error calling getLayerId() / getLayerShapes(). " 
-                << "Check template's image_size and template's onnx_model sizes. " 
-                << e.what() << ". In " <<  __FUNCTION__ << Log::Submit;
+		    cout << "Opencv Error calling getLayerId() / getLayerShapes(). " 
+                 << "Check template's image_size and template's onnx_model sizes. " 
+                 << e.what() << ". In " <<  __FUNCTION__ << Log::endl;
+			return;
 	    } catch(std::exception& e) {
-		    Log(Log::FatalError) << "S/W Error calling getLayerId() / getLayerShapes(). " 
-                << "Check template's image_size and template's onnx_model sizes. " 
-                << e.what() << ". In " <<  __FUNCTION__ << Log::Submit;
+		    cout << "S/W Error calling getLayerId() / getLayerShapes(). " 
+                 << "Check template's image_size and template's onnx_model sizes. " 
+                 << e.what() << ". In " <<  __FUNCTION__ << Log::endl;
+			return;
 	    } catch(...) {
-		    Log(Log::FatalError) << "Unknown S/W Error calling getLayerId() / getLayerShapes(). " 
-                << "Check template's image_size and template's onnx_model sizes. " 
-                << "In " <<  __FUNCTION__ << Log::Submit;
+		    cout << "Unknown S/W Error calling getLayerId() / getLayerShapes(). " 
+                 << "Check template's image_size and template's onnx_model sizes. " 
+                 << "In " <<  __FUNCTION__ << Log::endl;
+			return;
 	    }
 
         // don't think this can ever occur ...
 
-        if (outLayerShapes.size() != 1)
-		    Log(Log::FatalError) 
+        if (outLayerShapes.size() != 1) {
+		    cout 
                 << "Received an incorrect outLayerShape. Check onnx_model and ensure a valid yolo v3 or v4 model. "
-                << "In " <<  __FUNCTION__ << Log::Submit;
+                << "In " <<  __FUNCTION__ << Log::endl;
+			return;
+		}
 
         // set the shapes, anchors as per 'YoloBoxes' in the model
 
@@ -479,20 +483,20 @@ Yolo_v3v4::Yolo_v3v4(
             m_Anchors[outputLayer] = anchors[outputLayer] / xt::xarray<float>({ (float)imageWidth, (float)imageHeight });
 
         } catch(cv::Exception& e) {
-		    Log(Log::FatalError) 
-                << "Opencv Error calling getLayerShapes(). " 
-                << "Check template's image_size and template's onnx_model sizes. " 
-                << e.what() << ". In " <<  __FUNCTION__ << Log::Submit;
+		    cout << "Opencv Error calling getLayerShapes(). " 
+                 << "Check template's image_size and template's onnx_model sizes. " 
+                 << e.what() << ". In " <<  __FUNCTION__ << Log::endl;
+			return;
 	    } catch(std::exception& e) {
-		    Log(Log::FatalError) 
-                << "S/W Error calling getLayerShapes(). " 
-                << "Check template's image_size and template's onnx_model sizes. " 
-                << e.what() << ". In " <<  __FUNCTION__ << Log::Submit;
+		    cout << "S/W Error calling getLayerShapes(). " 
+                 << "Check template's image_size and template's onnx_model sizes. " 
+                 << e.what() << ". In " <<  __FUNCTION__ << Log::endl;
+			return;
 	    } catch(...) {
-		    Log(Log::FatalError)
-                << "Unknown S/W Error calling getLayerShapes(). " 
-                << "Check template's image_size and template's onnx_model sizes. " 
-                << "In " <<  __FUNCTION__ << Log::Submit;
+		    cout << "Unknown S/W Error calling getLayerShapes(). " 
+                 << "Check template's image_size and template's onnx_model sizes. " 
+                 << "In " <<  __FUNCTION__ << Log::endl;
+			return;
 	    }
     }
 };
@@ -525,9 +529,8 @@ void Yolo_v3v4::forward(const std::vector <cv::Mat>& images)
                 ss1 << image.size() << ", " << image.channels();
                 ss2 << m_InputImageSize << ", " << m_InputImageChannels;
 
-                Log(Log::Warning) 
-                    << "Image size (" << ss1.str() << ") does not match network size (" << ss2.str() << ") ." 
-                    << "In: " << __FUNCTION__ << Log::Submit;
+                cout << "Image size (" << ss1.str() << ") does not match network size (" << ss2.str() << ") ." 
+                     << "In: " << __FUNCTION__ << Log::endl;
                 return;
             }
         }
@@ -559,11 +562,11 @@ void Yolo_v3v4::forward(const std::vector <cv::Mat>& images)
         }
 
     } catch(cv::Exception& e) {
-		Log(Log::Warning) << "Opencv Error: " << e.what() << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "Opencv Error: " << e.what() << ". In " <<  __FUNCTION__ << Log::endl;
 	} catch(std::exception& e) {
-		Log(Log::Warning) << "S/W Error: " << e.what() << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "S/W Error: " << e.what() << ". In " <<  __FUNCTION__ << Log::endl;
 	} catch(...) {
-		Log(Log::Warning) << "Unknown S/W Error in " <<  __FUNCTION__ << Log::Submit;
+		cout << "Unknown S/W Error in " <<  __FUNCTION__ << Log::endl;
 	}
 }
 
@@ -597,15 +600,6 @@ void Yolo_v3v4::decode()
 
             for (int i = 0; i < m_Predictions_cv.at(o).total(); i++)
                 m_Predictions_xt.at(o).at(i) = probs_v.at(i);
-
-            //int numPredictClasses = m_InputShapes[output].at(4) - 5;
-            //if (!(m_NumClasses == numPredictClasses))
-            //{
-            //    Log(Log::Warning) 
-            //        << __FUNCTION__ << " num classes (" << m_NumClasses << ")  not equal to prediction size (" 
-            //        << numPredictClasses << "). " << Log::Submit;
-            //    continue;
-            //}
 
             m_Predictions_xt.at(o).resize({
                 (unsigned long long) m_InputShapes[output].at(0),
@@ -677,11 +671,11 @@ void Yolo_v3v4::decode()
             dnn::NMSBoxes(m_CorrectedBoxes.at(i), m_Confidences.at(i), m_nmsConfidence, m_nmsThreshold, m_Valid);
  
     } catch(cv::Exception& e) {
-		Log(Log::Warning) << "Opencv Error: " << e.what() << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "Opencv Error: " << e.what() << ". In " <<  __FUNCTION__ << Log::endl;
 	} catch(std::exception& e) {
-		Log(Log::Warning) << "S/W Error: " << e.what() << ". In " <<  __FUNCTION__ << Log::Submit;
+		cout << "S/W Error: " << e.what() << ". In " <<  __FUNCTION__ << Log::endl;
 	} catch(...) {
-		Log(Log::Warning) << "Unknown S/W Error in " <<  __FUNCTION__ << Log::Submit;
+		cout << "Unknown S/W Error in " <<  __FUNCTION__ << Log::endl;
 	}
 }
 
